@@ -106,6 +106,7 @@ class TunerIndicator extends PanelMenu.Button {
         };
         this._pendingWrite = false;
         this._dragLock = false;
+        this._valueLabels = [];
 
         this._buildMenu();
         this._poll();
@@ -173,32 +174,35 @@ class TunerIndicator extends PanelMenu.Button {
     }
 
     _addSlider(title, initial, min, max, onValue) {
-        const item = new PopupMenu.PopupSliderMenuItem(
-            (initial - min) / (max - min));
-        item.label = new St.Label({text: title, y_expand: true});
-        item.add_child(item.label);
-        this._valueLabels = this._valueLabels || [];
+        const item = new PopupMenu.PopupBaseMenuItem({reactive: false});
+        const titleLabel = new St.Label({text: title, y_expand: true});
         const valueLabel = new St.Label({text: `${initial}`});
-        item.add_child(valueLabel);
-        this._valueLabels.push(valueLabel);
+        const slider = new St.Slider((initial - min) / (max - min));
 
-        item._slider.connect('notify::value', () => {
+        slider.x_expand = true;
+        slider.style = 'min-width: 160px;';
+        item.add_child(titleLabel);
+        item.add_child(slider);
+        item.add_child(valueLabel);
+
+        slider.connect('notify::value', () => {
             if (this._dragLock)
                 return;
-            const v = Math.round(min + item._slider.value * (max - min));
+            const v = Math.round(min + slider.value * (max - min));
             valueLabel.text = `${v}`;
             onValue(v);
         });
-        item._slider.connect('button-release-event', () => {
+        slider.connect('button-press-event', () => {
+            this._dragLock = true;
+        });
+        slider.connect('button-release-event', () => {
             this._dragLock = false;
             this._scheduleWrite();
         });
-        item._slider.connect('button-press-event', () => {
-            this._dragLock = true;
-        });
+
         this.menu.addMenuItem(item);
-        item._slider.clamp = true;
-        return item;
+        this._valueLabels.push(valueLabel);
+        return slider;
     }
 
     // ------------------------------------------------------------ wiring
@@ -207,13 +211,8 @@ class TunerIndicator extends PanelMenu.Button {
         const c = this._control;
         const w = (c.watt - WATT_MIN) / (WATT_MAX - WATT_MIN);
         const t = (c.maxTemp - 40) / (120 - 40);
-        try {
-            this._wattSlider.setValue(w);
-            this._tempSlider.setValue(t);
-        } catch (e) {
-            this._wattSlider._slider.value = w;
-            this._tempSlider._slider.value = t;
-        }
+        this._wattSlider.value = w;
+        this._tempSlider.value = t;
         this._valueLabels[0].text = `${c.watt}`;
         this._valueLabels[1].text = `${c.maxTemp}`;
         this._boostSwitch.setToggleState(c.boost > 1.0);

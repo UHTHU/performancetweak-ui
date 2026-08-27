@@ -87,13 +87,20 @@ const TunerIndicator = GObject.registerClass(
 class TunerIndicator extends PanelMenu.Button {
     _init() {
         super._init(0.0, 'Autotune Tuner', false);
+        this.add_style_class_name('autotune-tuner-button');
 
+        this._icon = new St.Icon({
+            icon_name: 'preferences-system-power-symbolic',
+            style_class: 'autotune-icon',
+            icon_size: 14,
+        });
         this._label = new St.Label({
-            text: '⚡ —',
+            text: '…',
             y_expand: true,
             y_align: 1 /* Clutter.ActorAlign.CENTER */,
         });
         this._label.style = 'font-size: 11px; font-weight: 600;';
+        this.add_child(this._icon);
         this.add_child(this._label);
 
         this._state = null;        // parsed status file
@@ -109,6 +116,8 @@ class TunerIndicator extends PanelMenu.Button {
         this._valueLabels = [];
 
         this._buildMenu();
+        log('autotune-tuner: _init done, quickSettings=' +
+            (Main.panel.statusArea?.quickSettings ? 'exists' : 'MISSING'));
         this._poll();
         this._timeout = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT, POLL_MS, () => this._poll());
@@ -297,7 +306,7 @@ class TunerIndicator extends PanelMenu.Button {
 
             const w = Number.isFinite(measured) ? measured.toFixed(1) : '—';
             const t = Number.isFinite(temp) ? `${temp.toFixed(0)}°C` : '—';
-            this._label.text = `⚡ ${w}W`;
+            this._label.text = `${w}W`;
             this._rowService.label.text = 'Service: ● running';
             this._rowStatus.label.text =
                 `${w} W · ${t}${thermal ? ' · thermal' : ''}`;
@@ -305,7 +314,7 @@ class TunerIndicator extends PanelMenu.Button {
             this._rowStatus.label.style =
                 thermal ? 'color: #f66151;' : 'color: #8ff0a4;';
         } else {
-            this._label.text = '⚡ off';
+            this._label.text = 'off';
             this._rowService.label.text = 'Service: ○ stopped';
             this._rowStatus.label.text = '—';
             this._rowPl.label.text = '—';
@@ -355,9 +364,15 @@ export default class AutotuneTunerExtension extends Extension {
             return;
         }
 
-        qs._indicators.insert_child_below(this._indicator, qs._system);
-        this._indicator.show();
-        this._inserted = true;
+        if (qs._indicators && qs._system) {
+            qs._indicators.insert_child_below(this._indicator, qs._system);
+            this._indicator.show();
+            this._inserted = true;
+            log('autotune-tuner: inserted under _system, children=' +
+                qs._indicators.get_children().length);
+        } else {
+            log('autotune-tuner: quickSettings present but _indicators/_system missing');
+        }
     }
 
     disable() {

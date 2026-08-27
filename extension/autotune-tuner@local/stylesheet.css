@@ -1,0 +1,14 @@
+.autotune-tuner-button {
+    border-radius: 12px;
+    padding: 0 8px;
+}
+
+.autotune-tuner-button:active,
+.autotune-tuner-button:checked,
+.autotune-tuner-button:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.autotune-icon {
+    margin-right: 2px;
+}

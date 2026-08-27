@@ -19,6 +19,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 
 const STATUS_FILE = '/run/intel-undervolt-autotune/status';
 const CONTROL_FILE = '/dev/shm/intel-undervolt-autotune.controls';
@@ -105,7 +106,6 @@ class TunerIndicator extends PanelMenu.Button {
             domain: 'package',
         };
         this._pendingWrite = false;
-        this._dragLock = false;
         this._valueLabels = [];
 
         this._buildMenu();
@@ -177,28 +177,19 @@ class TunerIndicator extends PanelMenu.Button {
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false});
         const titleLabel = new St.Label({text: title, y_expand: true});
         const valueLabel = new St.Label({text: `${initial}`});
-        const slider = new St.Slider((initial - min) / (max - min));
+        const slider = new Slider((initial - min) / (max - min));
 
-        slider.x_expand = true;
         slider.style = 'min-width: 160px;';
         item.add_child(titleLabel);
         item.add_child(slider);
         item.add_child(valueLabel);
 
         slider.connect('notify::value', () => {
-            if (this._dragLock)
-                return;
             const v = Math.round(min + slider.value * (max - min));
             valueLabel.text = `${v}`;
             onValue(v);
         });
-        slider.connect('button-press-event', () => {
-            this._dragLock = true;
-        });
-        slider.connect('button-release-event', () => {
-            this._dragLock = false;
-            this._scheduleWrite();
-        });
+        slider.connect('drag-end', () => this._scheduleWrite());
 
         this.menu.addMenuItem(item);
         this._valueLabels.push(valueLabel);

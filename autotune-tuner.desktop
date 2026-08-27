@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Autotune Tuner
+Comment=Control intel-undervolt autotune: target watt, temperature ceiling, boost, presets
+Exec=__BIN__/autotune-tuner
+Icon=preferences-system-power-symbolic
+Terminal=false
+Categories=Utility;System;Monitor;
+Keywords=power;cpu;watt;temperature;

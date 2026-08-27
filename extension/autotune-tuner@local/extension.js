@@ -162,11 +162,11 @@ class TunerIndicator extends PanelMenu.Button {
             'Autotune service', false);
         this.menu.addMenuItem(this._powerSwitch);
         this._powerSwitch.connect('notify::state', (sw) => {
-            const method = sw.state ? 'StartUnit' : 'StopUnit';
-            this._systemd(method, (err) => {
+            const action = sw.state ? 'start' : 'stop';
+            this._systemctl(action, (err) => {
                 if (err) {
                     this._rowService.label.text =
-                        `Service: ${sw.state ? 'start' : 'stop'} failed`;
+                        `Service: ${action} failed`;
                     sw.setToggleState(!sw.state);
                 }
             });
@@ -238,21 +238,22 @@ class TunerIndicator extends PanelMenu.Button {
         }
     }
 
-    _systemd(method, cb) {
-        const params = new GLib.Variant('(ss)', [SERVICE, 'replace']);
+    _systemctl(action, cb) {
+        // Passwordless via /etc/sudoers.d/50-intel-undervolt-autotune,
+        // right scoped to exactly start/stop of this unit.
+        const argv = ['sudo', '-n', 'systemctl', action,
+            'intel-undervolt-autotune.service'];
         try {
-            Gio.DBus.system.call(
-                'org.freedesktop.systemd1', '/org/freedesktop/systemd1',
-                'org.freedesktop.systemd1.Manager', method,
-                params, null, Gio.DBusCallFlags.NONE, -1, null,
-                (conn, res) => {
-                    try {
-                        conn.call_finish(res);
-                        cb(null);
-                    } catch (e) {
-                        cb(e);
-                    }
-                });
+            const proc = Gio.Subprocess.new(argv,
+                Gio.SubprocessFlags.NONE, null);
+            proc.wait_check_async(null, (p, res) => {
+                try {
+                    p.wait_check_finish(res);
+                    cb(null);
+                } catch (e) {
+                    cb(e);
+                }
+            });
         } catch (e) {
             cb(e);
         }

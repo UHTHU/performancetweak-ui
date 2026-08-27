@@ -22,7 +22,7 @@ is not running.
 |---|---|---|
 | status | `/run/intel-undervolt-autotune/status` | root → UI (`key=value`, updated each loop cycle) |
 | control | `/dev/shm/intel-undervolt-autotune.controls` | UI → root (`watt`, `max-temp`, `min`, `max`, `boost`, `domain`) |
-| start/stop | `org.freedesktop.systemd1` D-Bus | UI → systemd, allowed by a polkit rule installed by `make install` |
+| start/stop | sudoers | UI → `sudo -n systemctl start/stop`, scoped to the unit in `/etc/sudoers.d/50-intel-undervolt-autotune` |
 
 ## Install
 

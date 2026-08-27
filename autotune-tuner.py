@@ -12,6 +12,7 @@
 import subprocess
 import os
 import sys
+import threading
 
 import gi
 gi.require_version('Gtk', '4.0')
@@ -189,12 +190,36 @@ class AutotuneWindow(Adw.ApplicationWindow):
         self._write_control()
 
     def _on_toggle(self, btn):
-        action = 'stop' if btn.get_active() else 'start'
-        self._toggle.set_sensitive(False)
+        # Button state mirrors the service state (synced by _poll()):
+        # clicking it asks for the opposite — active now = wants running.
+        action = 'start' if btn.get_active() else 'stop'
         self._toggle_wanted = action
-        subprocess.Popen(['sudo', '-n', 'systemctl', action, SERVICE],
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
+        self._toggle.set_sensitive(False)
+        self._row_status.set_text('Starting…' if action == 'start'
+                                  else 'Stopping…')
+        threading.Thread(target=self._run_systemctl, args=(action,),
+                         daemon=True).start()
+
+    def _run_systemctl(self, action):
+        try:
+            r = subprocess.run(['sudo', '-n', 'systemctl', action, SERVICE],
+                               capture_output=True, text=True, timeout=30)
+            ok = r.returncode == 0
+            detail = (r.stderr or r.stdout).strip()
+        except Exception as e:
+            ok = False
+            detail = str(e)
+        GLib.idle_add(self._systemctl_done, action, ok, detail)
+
+    def _systemctl_done(self, action, ok, detail):
+        self._toggle.set_sensitive(True)
+        self._toggle_wanted = None
+        if not ok:
+            # revert the visual toggle so it matches reality
+            self._toggle.set_active(action == 'stop')
+            self._row_status.set_text(f'failed: {detail[:80] or "unknown"}')
+            self._row_service.set_text(f'Service: {action} failed')
+        # on success, _poll() will pick up the new state within 1 s
 
     # ------------------------------------------------------- control
 
@@ -231,12 +256,6 @@ class AutotuneWindow(Adw.ApplicationWindow):
         else:
             self._toggle.set_active(False)
             self._toggle.set_label('Start')
-            if self._toggle_wanted == 'start':
-                self._row_service.set_text(
-                    'Service: failed to start (sudoers not installed?)')
-                self._toggle_wanted = None
-            elif self._toggle_wanted == 'stop':
-                self._toggle_wanted = None
             self._row_status.set_text('—')
             self._row_pl.set_text('PL —/— W')
             self._row_service.set_text('Service: ○ stopped')
